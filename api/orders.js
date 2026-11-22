@@ -1,10 +1,11 @@
-import { sqlClient, json } from './_db.js';
+import { sqlClient, json, ensureDatabase } from './_db.js';
 export default async function handler(req,res){
  if(req.method!=='POST') return json(res,405,{error:'Method not allowed'});
  const {name,phone,location,notes,items}=req.body||{};
  if(!name||!phone||!location||!Array.isArray(items)||items.length<1) return json(res,400,{error:'Fill name, phone, delivery location and cart items'});
  if(items.length>50) return json(res,400,{error:'Too many items'});
  try{
+  await ensureDatabase();
   const sql=sqlClient();
   const customerRows=await sql`INSERT INTO customers(name,phone,delivery_location) VALUES(${String(name).trim()},${String(phone).trim()},${String(location).trim()}) RETURNING id`;
   const customerId=customerRows[0].id;

@@ -9,7 +9,6 @@ CREATE TABLE IF NOT EXISTS products (
   is_available BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS customers (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   name TEXT NOT NULL,
@@ -17,7 +16,6 @@ CREATE TABLE IF NOT EXISTS customers (
   delivery_location TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
-
 CREATE TABLE IF NOT EXISTS orders (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   customer_id BIGINT REFERENCES customers(id),
@@ -38,11 +36,3 @@ CREATE TABLE IF NOT EXISTS order_items (
   quantity INTEGER NOT NULL CHECK (quantity > 0),
   subtotal NUMERIC(12,2) NOT NULL
 );
-
-INSERT INTO products (name, description, price, unit, image_url, stock) VALUES
-('Maembe','Maembe fresh',1500,'moja','https://images.unsplash.com/photo-1553279768-865b7e7f6c1c?auto=format&fit=crop&w=600&q=80',30),
-('Ndizi','Ndizi fresh',3000,'fungu','https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?auto=format&fit=crop&w=600&q=80',25),
-('Machungwa','Machungwa fresh',2500,'kilo','https://images.unsplash.com/photo-1547514701-42782101795e?auto=format&fit=crop&w=600&q=80',20),
-('Parachichi','Parachichi fresh',1000,'moja','https://images.unsplash.com/photo-1523049673857-eb18f1d7b578?auto=format&fit=crop&w=600&q=80',40),
-('Nanasi','Nanasi fresh',3500,'moja','https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=600&q=80',15)
-ON CONFLICT DO NOTHING;

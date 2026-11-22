@@ -1,28 +1,32 @@
 import { sqlClient, json, ensureDatabase } from './_db.js';
 export default async function handler(req,res){
  if(req.method!=='POST') return json(res,405,{error:'Method not allowed'});
- const {name,phone,location,notes,items}=req.body||{};
- if(!name||!phone||!location||!Array.isArray(items)||items.length<1) return json(res,400,{error:'Fill name, phone, delivery location and cart items'});
- if(items.length>50) return json(res,400,{error:'Too many items'});
+ const b=req.body||{};
+ const name=String(b.name||'').trim().slice(0,100),phone=String(b.phone||'').replace(/[^\d+]/g,''),location=String(b.location||'').trim().slice(0,300),notes=String(b.notes||'').trim().slice(0,500);
+ const method=b.payment_method==='mobile_money'?'mobile_money':'cod';
+ const ref=method==='mobile_money'?String(b.payment_reference||'').trim().toUpperCase().slice(0,40):null;
+ if(!name||!location||phone.replace(/\D/g,'').length<9||!Array.isArray(b.items)||!b.items.length||b.items.length>50) return json(res,400,{error:'Jaza jina, namba sahihi ya simu, eneo na bidhaa.'});
+ if(method==='mobile_money'&&ref.length<6) return json(res,400,{error:'Weka namba ya muamala (transaction ID) ya malipo.'});
+ const q={};
+ for(const i of b.items){const id=Number(i.product_id),n=Number(i.quantity);if(!Number.isInteger(id)||!Number.isInteger(n)||n<1||n>100)return json(res,400,{error:'Bidhaa si sahihi.'});q[id]=(q[id]||0)+n;}
+ const lines=Object.entries(q).map(([product_id,qty])=>({product_id:Number(product_id),qty}));
  try{
-  await ensureDatabase();
-  const sql=sqlClient();
-  const customerRows=await sql`INSERT INTO customers(name,phone,delivery_location) VALUES(${String(name).trim()},${String(phone).trim()},${String(location).trim()}) RETURNING id`;
-  const customerId=customerRows[0].id;
-  let total=0, clean=[];
-  for(const item of items){
-   const id=Number(item.product_id), qty=Number(item.quantity);
-   if(!Number.isInteger(id)||!Number.isInteger(qty)||qty<1||qty>100) return json(res,400,{error:'Invalid cart item'});
-   const rows=await sql`SELECT id,name,price,unit,stock FROM products WHERE id=${id} AND is_available=true`;
-   if(!rows.length) return json(res,400,{error:'Product not found'});
-   const p=rows[0]; if(qty>p.stock) return json(res,400,{error:`Not enough stock for ${p.name}`});
-   const subtotal=Number(p.price)*qty; total+=subtotal; clean.push({...p,quantity:qty,subtotal});
-  }
-  const orderRows=await sql`INSERT INTO orders(customer_id,total_amount,notes) VALUES(${customerId},${total},${String(notes||'')}) RETURNING id,total_amount,status,payment_status,created_at`;
-  const order=orderRows[0];
-  for(const p of clean){
-   await sql`INSERT INTO order_items(order_id,product_id,product_name,unit_price,quantity,subtotal) VALUES(${order.id},${p.id},${p.name},${p.price},${p.quantity},${p.subtotal})`;
-  }
-  return json(res,201,{order,items:clean.map(p=>({name:p.name,quantity:p.quantity,unit:p.unit,price:p.price,subtotal:p.subtotal})),message:'Order saved. Payment integration is not active yet.'});
- }catch(e){console.error(e);return json(res,500,{error:'Could not save order'});}
+  await ensureDatabase();const sql=sqlClient();
+  const rows=await sql`SELECT id,name,stock FROM products WHERE is_available=true AND id=ANY(${lines.map(l=>l.product_id)})`;
+  if(rows.length!==lines.length) return json(res,400,{error:'Bidhaa moja haipatikani tena. Onyesha upya ukurasa.'});
+  for(const r of rows) if(q[r.id]>r.stock) return json(res,400,{error:`${r.name}: zimebaki ${r.stock} tu.`});
+  const fee=Math.max(0,Number(process.env.DELIVERY_FEE||0))||0;
+  const out=await sql`WITH l AS (SELECT p.id,p.name,p.price,x.qty FROM jsonb_to_recordset(${JSON.stringify(lines)}::jsonb) AS x(product_id bigint,qty int) JOIN products p ON p.id=x.product_id),
+   c AS (INSERT INTO customers(name,phone,delivery_location) VALUES(${name},${phone},${location}) RETURNING id),
+   o AS (INSERT INTO orders(customer_id,total_amount,delivery_fee,notes,payment_method,payment_reference) SELECT c.id,(SELECT SUM(price*qty) FROM l)+${fee}::numeric,${fee}::numeric,${notes}::text,${method}::text,${ref}::text FROM c RETURNING id,total_amount,delivery_fee,status,payment_status,payment_method,created_at),
+   i AS (INSERT INTO order_items(order_id,product_id,product_name,unit_price,quantity,subtotal) SELECT o.id,l.id,l.name,l.price,l.qty,l.price*l.qty FROM o,l),
+   s AS (UPDATE products p SET stock=p.stock-l.qty FROM l WHERE p.id=l.id)
+   SELECT * FROM o`;
+  return json(res,201,{order:out[0]});
+ }catch(e){
+  console.error(e);
+  if(e.code==='23514') return json(res,400,{error:'Stock imeisha wakati unaagiza. Onyesha upya ukurasa.'});
+  if(e.code==='23505') return json(res,400,{error:'Namba hii ya muamala imeshatumika.'});
+  return json(res,500,{error:'Oda haikuhifadhiwa. Jaribu tena.'});
+ }
 }

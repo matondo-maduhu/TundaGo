@@ -1,4 +1,5 @@
 import { neon } from '@neondatabase/serverless';
+import { timingSafeEqual } from 'node:crypto';
 
 let initPromise;
 export function sqlClient(){
@@ -50,6 +51,7 @@ export async function ensureDatabase(){
         quantity INTEGER NOT NULL CHECK (quantity > 0),
         subtotal NUMERIC(12,2) NOT NULL
       )`;
+      await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_method TEXT NOT NULL DEFAULT 'cod'`;
       await sql`INSERT INTO products(name,description,price,unit,image_url,stock)
         SELECT 'Maembe','Maembe fresh',1500,'moja','https://images.unsplash.com/photo-1553279768-865b7e7f6c1c?auto=format&fit=crop&w=600&q=80',30
         WHERE NOT EXISTS (SELECT 1 FROM products WHERE name='Maembe')`;
@@ -73,9 +75,16 @@ export function method(req, allowed){
   if(!allowed.includes(req.method)) return false;
   return true;
 }
+const fails=new Map();
 export function adminOk(req){
-  const token=req.headers['x-admin-token'];
-  return Boolean(process.env.ADMIN_TOKEN && token && token===process.env.ADMIN_TOKEN);
+  const ip=String(req.headers['x-forwarded-for']||'x').split(',')[0];
+  const f=fails.get(ip)||{n:0,t:Date.now()};
+  if(Date.now()-f.t>9e5){f.n=0;f.t=Date.now();}
+  if(f.n>=10) return false;
+  const a=Buffer.from(String(req.headers['x-admin-token']||'')),b=Buffer.from(process.env.ADMIN_TOKEN||'');
+  const ok=b.length>0&&a.length===b.length&&timingSafeEqual(a,b);
+  if(!ok){f.n++;fails.set(ip,f);}
+  return ok;
 }
 export function json(res,status,body){
   res.status(status).setHeader('Content-Type','application/json; charset=utf-8').send(JSON.stringify(body));

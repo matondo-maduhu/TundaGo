@@ -1,32 +1,14 @@
-# TundaGo MVP (GitHub + Vercel + Neon)
+# TundaGo (GitHub + Vercel + Neon)
 
-This starter includes a mobile-friendly fruit storefront, product listing, cart, customer/delivery form, order API, Neon schema, and token-protected admin order list/status updates.
+Duka la matunda: bidhaa, cart (inahifadhiwa), oda, stock inapungua kiotomatiki, kufuatilia oda, na admin (oda + bidhaa).
 
-## Important status
-- Payment integration is **not connected**. `api/payment.js` intentionally returns 501. Do not accept or tell customers to pay based on this demo.
-- This is an MVP starter, not production-ready. Admin token authentication is a simple shared token; before real use, replace it with proper authentication, rate limits, validation, CSRF protections where relevant, and audit logging.
-- Product images are externally hosted image URLs; replace with URLs you have rights to use.
+## Vercel Environment Variables
+`DATABASE_URL`, `ADMIN_TOKEN` (lazima). Hiari: `DELIVERY_FEE`, `PAYMENT_NUMBER`, `PAYMENT_NAME`, `PAYMENT_NETWORK`, `SHOP_PHONE`.
+Tables zinatengenezwa zenyewe kwenye request ya kwanza.
 
-## 1) Neon setup
-1. Create a Neon database.
-2. Open SQL Editor and run `database/schema.sql`.
-3. Copy the Neon connection string.
+## Malipo
+- **Cash**: admin anaweka "imelipwa" (au inakuwa hivyo oda ikikamilika).
+- **Simu (manual)**: mteja anatuma pesa kwa `PAYMENT_NUMBER` na kuweka transaction ID; wewe unahakiki kwenye simu yako kisha bonyeza "Weka imelipwa".
+- Gateway ya moja kwa moja (`api/payment.js`) haijaunganishwa bado.
 
-## 2) GitHub
-Upload these files/folders to a repository root (or push the folder).
-## 3) Vercel
-Import the GitHub repository. Framework preset: Other. Root directory: `.`.
-Set environment variables:
-- `DATABASE_URL` = Neon connection string
-- `ADMIN_TOKEN` = long random token
-- `WEBPUSH_API_URL`, `WEBPUSH_API_KEY`, `WEBPUSH_SECRET` remain empty until API docs are reviewed
-Deploy.
-## URLs
-- Store: `/`
-- Admin: `/admin.html`
-## Admin
-Open `/admin.html`, enter the same `ADMIN_TOKEN`, then Load orders. Status can be changed. Do not set `paid` unless payment is verified independently.
-
-## Automatic database initialization
-
-The API calls `ensureDatabase()` on first use. With `DATABASE_URL` configured in Vercel, it creates the tables and inserts starter fruit products automatically. No manual SQL Editor run is needed. Keep the Neon connection string private and configure it only in Vercel Environment Variables.
+URLs: `/` duka, `/admin.html` admin.

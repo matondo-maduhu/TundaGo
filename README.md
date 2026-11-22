@@ -26,3 +26,7 @@ Deploy.
 - Admin: `/admin.html`
 ## Admin
 Open `/admin.html`, enter the same `ADMIN_TOKEN`, then Load orders. Status can be changed. Do not set `paid` unless payment is verified independently.
+
+## Automatic database initialization
+
+The API calls `ensureDatabase()` on first use. With `DATABASE_URL` configured in Vercel, it creates the tables and inserts starter fruit products automatically. No manual SQL Editor run is needed. Keep the Neon connection string private and configure it only in Vercel Environment Variables.
